@@ -5,6 +5,8 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Badge, Banner, Button, Card, Expandable, Field, KV, SectionTitle, inputCls } from "@/components/ui";
 import CsvUploader from "@/components/CsvUploader";
+import DesignStep from "@/components/DesignStep";
+import TestComparison from "@/components/TestComparison";
 import { InterpretationPanel, ResultsPanel, SegmentsPanel, ValidationPanel } from "@/components/AnalysisResults";
 import { analyzeQuestion, buildHypothesis, frameproblem, recommendTest } from "@/lib/guidance";
 import { runPowerAnalysis } from "@/lib/power";
@@ -52,6 +54,7 @@ function WorkflowInner() {
   const [dataset, setDataset] = useState<ParsedDataset | null>(null);
   const [questionDraft, setQuestionDraft] = useState("");
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [compareWith, setCompareWith] = useState<string | null>(null);
   const settings = useMemo(() => getSettings(), []);
 
   useEffect(() => {
@@ -410,18 +413,33 @@ function WorkflowInner() {
               <SectionTitle sub="Consider these if the recommended design's assumptions don't hold.">Alternative tests</SectionTitle>
               <div className="space-y-2">
                 {exp.recommendation.alternatives.map((alt) => (
-                  <div key={alt.testId} className="flex items-start justify-between gap-4 rounded-lg border border-slate-100 p-3">
+                  <div
+                    key={alt.testId}
+                    className={`flex items-start justify-between gap-4 rounded-lg border p-3 ${compareWith === alt.testId ? "border-blue-300 bg-blue-50/40" : "border-slate-100"}`}
+                  >
                     <div>
                       <p className="text-sm font-medium text-slate-800">{alt.name}</p>
                       <p className="text-xs text-slate-500">{alt.when}</p>
                     </div>
-                    <Link href={`/guide/${alt.testId}`} className="whitespace-nowrap text-xs font-medium text-blue-600 hover:underline">
-                      Compare →
-                    </Link>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <button
+                        onClick={() => setCompareWith(compareWith === alt.testId ? null : alt.testId)}
+                        className="whitespace-nowrap text-xs font-medium text-blue-600 hover:underline"
+                      >
+                        {compareWith === alt.testId ? "Hide comparison" : "Compare side-by-side"}
+                      </button>
+                      <Link href={`/guide/${alt.testId}`} className="whitespace-nowrap text-xs font-medium text-slate-400 hover:text-blue-600 hover:underline">
+                        Guide →
+                      </Link>
+                    </div>
                   </div>
                 ))}
               </div>
             </Card>
+          )}
+
+          {compareWith && (
+            <TestComparison recommendedSlug={exp.recommendation.testId} alternativeSlug={compareWith} onClose={() => setCompareWith(null)} />
           )}
 
           <StepNav onBack={() => goto(2)} onNext={() => goto(4)} />
@@ -430,58 +448,13 @@ function WorkflowInner() {
 
       {/* STEP 4: Design */}
       {exp.step === 4 && exp.design && (
-        <div className="space-y-4">
-          <Card>
-            <SectionTitle sub="Review and adjust the recommended design. These choices are recorded in the final report.">Experiment design</SectionTitle>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label="Control group"><input className={inputCls} value={exp.design.control} onChange={(e) => update({ design: { ...exp.design!, control: e.target.value } })} /></Field>
-              <Field label="Treatment group"><input className={inputCls} value={exp.design.treatment} onChange={(e) => update({ design: { ...exp.design!, treatment: e.target.value } })} /></Field>
-              <Field label="Target audience"><input className={inputCls} value={exp.design.audience} onChange={(e) => update({ design: { ...exp.design!, audience: e.target.value } })} /></Field>
-              <Field label="Randomization unit" hint="User-level prevents one person from seeing both experiences. Account-level suits B2B. Geo/time-block when users can't be split.">
-                <select
-                  className={inputCls}
-                  value={exp.design.randomizationUnit}
-                  onChange={(e) => update({ design: { ...exp.design!, randomizationUnit: e.target.value as NonNullable<Experiment["design"]>["randomizationUnit"] } })}
-                >
-                  {["user", "session", "account", "geo", "time-block", "cluster"].map((u) => (
-                    <option key={u} value={u}>{u}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Sample split"><input className={inputCls} value={exp.design.split} onChange={(e) => update({ design: { ...exp.design!, split: e.target.value } })} /></Field>
-              <Field label="Planned duration (weeks)">
-                <input type="number" min={1} className={inputCls} value={exp.design.durationWeeks} onChange={(e) => update({ design: { ...exp.design!, durationWeeks: Number(e.target.value) } })} />
-              </Field>
-              <Field label="Inclusion criteria"><input className={inputCls} value={exp.design.inclusion} onChange={(e) => update({ design: { ...exp.design!, inclusion: e.target.value } })} /></Field>
-              <Field label="Exclusion criteria"><input className={inputCls} value={exp.design.exclusion} onChange={(e) => update({ design: { ...exp.design!, exclusion: e.target.value } })} /></Field>
-            </div>
-            <dl className="mt-4 grid grid-cols-1 gap-x-8 md:grid-cols-2">
-              <KV k="Randomization method" v={exp.design.randomizationMethod} />
-              <KV k="Stopping rules" v={exp.design.stoppingRules} />
-              <KV k="Decision rules" v={exp.design.decisionRules} />
-              <KV k="Rollout recommendation" v={exp.design.rollout} />
-            </dl>
-          </Card>
-
-          {exp.design.randomizationUnit === "session" && (
-            <Banner tone="warning" title="Session-level randomization risk">
-              The same user can land in both variants across sessions, contaminating anything the user remembers. Prefer user-level randomization for visible UX changes.
-            </Banner>
-          )}
-
-          <Expandable title="Common design mistakes this platform will hold you to">
-            <ul className="list-disc space-y-1 pl-5">
-              <li>Do not change targeting or the treatment mid-test — restart instead.</li>
-              <li>Do not stop early because results look good (peeking inflates false positives).</li>
-              <li>Do not ignore guardrail metrics or sample ratio mismatch.</li>
-              <li>Do not test multiple unrelated changes in one variant.</li>
-              <li>Do not launch during unusual seasonality if avoidable.</li>
-              <li>Analyze only users who were actually exposed; no user should appear in both variants.</li>
-            </ul>
-          </Expandable>
-
-          <StepNav onBack={() => goto(3)} onNext={() => goto(5)} />
-        </div>
+        <DesignStep
+          design={exp.design}
+          powerResult={exp.powerResult}
+          onChange={(d) => update({ design: d })}
+          onBack={() => goto(3)}
+          onNext={() => goto(5)}
+        />
       )}
 
       {/* STEP 5: Metrics */}
