@@ -50,3 +50,23 @@ A 12-step guided workflow (`New Experiment`):
 ## Extensibility
 
 Storage, analysis, and guidance are isolated modules so future versions can add accounts, warehouse integrations (Snowflake/BigQuery/Redshift), analytics sources (Amplitude/Mixpanel/Segment), a semantic metric layer, approval workflows, experiment registry, feature-flag integrations, and automated monitoring without rewriting the UI.
+
+## Deploying
+
+The app is entirely client-side — every page is a client component and all state lives in `localStorage` — so it ships as a static site with no server.
+
+Live site: **https://alikhanzadi.github.io/ab_testing_platform/**
+
+Pushes to `main` trigger `.github/workflows/deploy.yml`, which builds the static export and publishes it to GitHub Pages. You can also run it by hand from the repo's Actions tab ("Deploy to GitHub Pages" → Run workflow).
+
+`next.config.ts` sets `output: "export"` and reads `NEXT_PUBLIC_BASE_PATH`, which the workflow fills in from the Pages configuration (`/ab_testing_platform` for a project site, empty for a custom domain served at the root). Local `npm run dev` and `npm run build` leave it empty, so nothing changes day to day.
+
+To produce the static site locally:
+
+```bash
+cd experiment-platform
+npm ci
+npm run build   # writes ./out
+```
+
+Because there is no backend, each visitor's experiments and reports stay in their own browser and are never uploaded.

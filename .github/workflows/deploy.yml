@@ -1,0 +1,64 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish rather than cancelling it mid-publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Resolve base path
+        id: base
+        run: |
+          bp="${{ steps.pages.outputs.base_path }}"
+          # Next.js rejects "/" as a basePath; a root-served site wants an empty value.
+          if [ "$bp" = "/" ]; then bp=""; fi
+          echo "value=$bp" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: experiment-platform/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: experiment-platform
+
+      - name: Build static site
+        run: npm run build
+        working-directory: experiment-platform
+        env:
+          NEXT_PUBLIC_BASE_PATH: ${{ steps.base.outputs.value }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: experiment-platform/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
