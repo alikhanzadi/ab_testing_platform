@@ -1,18 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Banner, Button, Card, SectionTitle } from "@/components/ui";
-import { deleteReport, listReports } from "@/lib/storage";
+import { deleteReport } from "@/lib/storage";
+import { useReports } from "@/lib/hooks";
 import { download, markdownToHtml } from "@/lib/report";
-import type { SavedReport } from "@/lib/types";
 
 export default function ReportsPage() {
-  const [reports, setReports] = useState<SavedReport[]>([]);
+  const reports = useReports();
   const [openId, setOpenId] = useState<string | null>(null);
-
-  useEffect(() => {
-    setReports(listReports());
-  }, []);
 
   const open = reports.find((r) => r.id === openId);
 
@@ -55,7 +51,6 @@ export default function ReportsPage() {
                 variant="danger"
                 onClick={() => {
                   deleteReport(r.id);
-                  setReports(listReports());
                   if (openId === r.id) setOpenId(null);
                 }}
               >

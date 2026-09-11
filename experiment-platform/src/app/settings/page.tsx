@@ -1,18 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Banner, Button, Card, Field, SectionTitle, inputCls } from "@/components/ui";
-import { getSettings, saveSettings } from "@/lib/storage";
+import { saveSettings } from "@/lib/storage";
+import { useStoredSettings } from "@/lib/hooks";
 import { DEFAULT_SETTINGS, type AppSettings } from "@/lib/types";
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const stored = useStoredSettings();
+  // Edits live in a draft so the form stays responsive before it is saved;
+  // with no draft the fields show whatever is in storage.
+  const [draft, setDraft] = useState<AppSettings | null>(null);
   const [saved, setSaved] = useState(false);
-
-  useEffect(() => setSettings(getSettings()), []);
+  const settings = draft ?? stored;
 
   const set = (patch: Partial<AppSettings>) => {
-    setSettings((s) => ({ ...s, ...patch }));
+    setDraft({ ...settings, ...patch });
     setSaved(false);
   };
 
@@ -75,6 +78,7 @@ export default function SettingsPage() {
         <Button
           onClick={() => {
             saveSettings(settings);
+            setDraft(null);
             setSaved(true);
           }}
         >
@@ -84,7 +88,7 @@ export default function SettingsPage() {
           variant="secondary"
           onClick={() => {
             saveSettings(DEFAULT_SETTINGS);
-            setSettings(DEFAULT_SETTINGS);
+            setDraft(null);
             setSaved(true);
           }}
         >

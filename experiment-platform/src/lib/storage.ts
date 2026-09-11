@@ -22,6 +22,7 @@ function read<T>(key: string, fallback: T): T {
 function write<T>(key: string, value: T) {
   if (typeof window === "undefined") return;
   localStorage.setItem(key, JSON.stringify(value));
+  emit();
 }
 
 export function listExperiments(): Experiment[] {
@@ -96,3 +97,40 @@ export function toggleBookmark(slug: string): string[] {
   write(BOOKMARKS_KEY, next);
   return next;
 }
+
+// --- Reactive reads -------------------------------------------------------
+// The hooks in ./hooks.ts read these through useSyncExternalStore, which needs
+// a snapshot whose reference only changes when the data does. Each parsed
+// value is therefore cached against the raw string it was built from, so
+// repeated renders reuse it and a write produces a fresh one.
+
+const listeners = new Set<() => void>();
+const snapshots = new Map<string, { raw: string | null; value: unknown }>();
+
+function emit() {
+  for (const listener of listeners) listener();
+}
+
+function snapshot<T>(key: string, compute: () => T): T {
+  const raw = typeof window === "undefined" ? null : localStorage.getItem(key);
+  const cached = snapshots.get(key);
+  if (cached && cached.raw === raw) return cached.value as T;
+  const value = compute();
+  snapshots.set(key, { raw, value });
+  return value;
+}
+
+/** Notifies on writes from this tab and on changes made in other tabs. */
+export function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  window.addEventListener("storage", listener);
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener("storage", listener);
+  };
+}
+
+export const experimentsSnapshot = () => snapshot(EXPERIMENTS_KEY, listExperiments);
+export const reportsSnapshot = () => snapshot(REPORTS_KEY, listReports);
+export const settingsSnapshot = () => snapshot(SETTINGS_KEY, getSettings);
+export const bookmarksSnapshot = () => snapshot(BOOKMARKS_KEY, getBookmarks);

@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { Badge, Button, Card, SectionTitle } from "@/components/ui";
-import { listExperiments, listReports } from "@/lib/storage";
-import type { Experiment, SavedReport } from "@/lib/types";
+import { useExperiments, useReports } from "@/lib/hooks";
+import type { Experiment } from "@/lib/types";
 import { TEST_CATALOG } from "@/data/testCatalog";
 
 const STATUS_TONE: Record<Experiment["status"], "slate" | "blue" | "amber" | "green"> = {
@@ -15,13 +14,8 @@ const STATUS_TONE: Record<Experiment["status"], "slate" | "blue" | "amber" | "gr
 };
 
 export default function Dashboard() {
-  const [experiments, setExperiments] = useState<Experiment[]>([]);
-  const [reports, setReports] = useState<SavedReport[]>([]);
-
-  useEffect(() => {
-    setExperiments(listExperiments());
-    setReports(listReports());
-  }, []);
+  const experiments = useExperiments();
+  const reports = useReports();
 
   const drafts = experiments.filter((e) => e.status === "draft" || e.status === "designed");
   const commonTests = TEST_CATALOG.filter((t) => ["ab-test", "abn-test", "revenue-per-user-test", "retention-cohort-test"].includes(t.slug));

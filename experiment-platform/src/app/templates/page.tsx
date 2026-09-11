@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge, Button, Card, Expandable, SectionTitle } from "@/components/ui";
+import { Badge, Button, Card, Expandable } from "@/components/ui";
 import { CSV_TEMPLATES } from "@/data/csvTemplates";
 import { download } from "@/lib/report";
 

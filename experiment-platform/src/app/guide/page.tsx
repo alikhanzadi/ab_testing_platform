@@ -1,20 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge, Card, SectionTitle, inputCls } from "@/components/ui";
 import { CATEGORIES, TEST_CATALOG, type Category, type Difficulty } from "@/data/testCatalog";
-import { getBookmarks, toggleBookmark } from "@/lib/storage";
+import { toggleBookmark } from "@/lib/storage";
+import { useBookmarks } from "@/lib/hooks";
 
 export default function GuidePage() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<Category | "all">("all");
   const [difficulty, setDifficulty] = useState<Difficulty | "all">("all");
   const [showComparison, setShowComparison] = useState(false);
-  const [bookmarks, setBookmarks] = useState<string[]>([]);
+  const bookmarks = useBookmarks();
   const [onlyBookmarked, setOnlyBookmarked] = useState(false);
-
-  useEffect(() => setBookmarks(getBookmarks()), []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -112,7 +111,7 @@ export default function GuidePage() {
                   .map((t) => (
                     <Card key={t.slug} className="relative h-full transition-colors hover:border-blue-300">
                       <button
-                        onClick={() => setBookmarks(toggleBookmark(t.slug))}
+                        onClick={() => toggleBookmark(t.slug)}
                         title={bookmarks.includes(t.slug) ? "Remove bookmark" : "Bookmark"}
                         className={`absolute right-4 top-4 text-lg leading-none ${bookmarks.includes(t.slug) ? "text-amber-500" : "text-slate-200 hover:text-slate-400"}`}
                       >

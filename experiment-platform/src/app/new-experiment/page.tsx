@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Badge, Banner, Button, Card, Expandable, Field, KV, SectionTitle, inputCls } from "@/components/ui";
 import CsvUploader from "@/components/CsvUploader";
@@ -47,24 +47,18 @@ const SEVERITY_LABEL: Record<Severity, { label: string; tone: "green" | "amber" 
   "not-recommended": { label: "Experiment not recommended", tone: "red" },
 };
 
-function WorkflowInner() {
-  const searchParams = useSearchParams();
-  const existingId = searchParams.get("id");
-  const [exp, setExp] = useState<Experiment | null>(null);
+function WorkflowInner({ existingId }: { existingId: string | null }) {
+  // This component renders below a Suspense boundary, so it is client-rendered
+  // rather than hydrated from prerendered markup and can read storage straight
+  // away. WorkflowRoute remounts it when ?id= changes.
+  const [exp, setExp] = useState<Experiment>(
+    () => (existingId ? getExperiment(existingId) : undefined) ?? newExperiment()
+  );
   const [dataset, setDataset] = useState<ParsedDataset | null>(null);
-  const [questionDraft, setQuestionDraft] = useState("");
+  const [questionDraft, setQuestionDraft] = useState(() => exp.question?.raw ?? "");
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [compareWith, setCompareWith] = useState<string | null>(null);
   const settings = useMemo(() => getSettings(), []);
-
-  useEffect(() => {
-    const loaded = existingId ? getExperiment(existingId) : undefined;
-    const e = loaded ?? newExperiment();
-    setExp(e);
-    setQuestionDraft(e.question?.raw ?? "");
-  }, [existingId]);
-
-  if (!exp) return null;
 
   const update = (patch: Partial<Experiment>) => {
     const next = { ...exp, ...patch };
@@ -695,10 +689,17 @@ function PowerStep({ exp, update, onBack, onNext }: { exp: Experiment; update: (
   );
 }
 
+function WorkflowRoute() {
+  const searchParams = useSearchParams();
+  const existingId = searchParams.get("id");
+  // Keyed so switching to a different ?id= re-reads that experiment from storage.
+  return <WorkflowInner key={existingId ?? "new"} existingId={existingId} />;
+}
+
 export default function NewExperimentPage() {
   return (
     <Suspense fallback={null}>
-      <WorkflowInner />
+      <WorkflowRoute />
     </Suspense>
   );
 }
